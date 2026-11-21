@@ -1,0 +1,36 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB      # 单个文件最大大小
+      max-request-size: 50MB
+  ai:
+    openai:
+      # DeepSeek API ?????OpenAI???
+      base-url: https://api.deepseek.com
+      # ??DeepSeek API Key??deepseek.com???
+      api-key: sk-ccc20006513248bfb6ba58d0bff6e2f4
+      chat:
+        options:
+          # ????
+          model: deepseek-chat
+          # ???????????????0.1-0.3
+          temperature: 0.2
+          # ????token
+          max-tokens: 2048
+    vectorstore:
+      milvus:
+        client:
+          host: localhost
+          port: 19530
+        database-name: default
+        collection-name: power_spec_knowledge
+        embedding-dimension: 1536 # 和DeepSeek嵌入模型维度对应
+        initialize-schema: true
+tongyi:
+  embedding:
+    base_url: https://llm-5iwbjc3jdg7xi6zj.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+    api-key: sk-76e499290631462db99c15819986b2d4
+    model: text-embedding-v2
+server:
+  port: 8888
+

@@ -84,18 +84,26 @@ public class RagService {
         // 1. 提取纯文本
         String content = DocumentParserUtil.parse(file);
 
-        // 2. AI自动分类
-        String specType = autoClassify(content);
+        // 2. 文本为空直接抛出提示，不进向量化
+        if (content.isBlank()) {
+            throw new IllegalArgumentException("文档未提取到有效文");
+        }
 
-        // 3. 文本切片，携带分类元数据
+        // 3. 文本切片
         Document rawDoc = new Document(content);
         rawDoc.getMetadata().put("fileName", file.getOriginalFilename());
-        rawDoc.getMetadata().put("specType", specType); // 自动分类标签存入元数据
+        rawDoc.getMetadata().put("specType", autoClassify(content));
         List<Document> chunks = textSplitter.apply(List.of(rawDoc));
 
-        // 4. 向量化入库
+        // 4. 切片后再次校验
+        if (chunks == null || chunks.isEmpty()) {
+            throw new IllegalArgumentException("文档内容过短，无法生成有效知识片段");
+        }
+
+        // 5. 向量化入库
         vectorStore.add(chunks);
     }
+
 
     /**
      * 根据问题自动分类后，检索相关上下文

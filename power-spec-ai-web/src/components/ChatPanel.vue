@@ -129,11 +129,14 @@ const handleSend = async () => {
       meta: { specCategory: res.specCategory, costTime: res.costTime }
     })
   } catch (err) {
-    ElMessage.error('请求失败，请检查后端服务是否启动')
-    messageList.value.push({
-      role: 'ai',
-      content: '抱歉，服务暂时不可用，请稍后重试。'
-    })
+    let tip = '抱歉，服务暂时不可用，请稍后重试。'
+    if (err?.code === 'ECONNABORTED') {
+      tip = '回答生成超时，请减少问题范围后重试。'
+      ElMessage.error(tip)
+    } else {
+      ElMessage.error('请求失败，请检查后端服务是否启动')
+    }
+    messageList.value.push({ role: 'ai', content: tip })
   } finally {
     loading.value = false
     scrollToBottom()

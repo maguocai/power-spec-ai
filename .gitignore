@@ -1,0 +1,123 @@
+# ==================== Java / Maven ====================
+# 编译输出
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven 本地仓库与日志
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+mvnw
+mvnw.cmd
+.mvn/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.idea_modules/
+**/src/main/resources/application.yml
+
+# Eclipse
+.settings/
+.project
+.classpath
+.metadata/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# VS Code（如果后端也用）
+.vscode/
+
+# 日志与临时文件
+*.log
+logs/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境与密钥（按需保留，建议忽略）
+*.env
+.env.local
+*.pem
+*.key
+
+# ==================== Vue / Node ====================
+# 依赖目录
+node_modules/
+bower_components/
+jspm_packages/
+
+# 构建输出
+dist/
+dist-ssr/
+build/
+.output/
+.nuxt/
+.vite/
+*.local
+
+# 缓存
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.npm/
+.yarn/
+.pnpm-store/
+
+# 包管理器锁文件（按团队规范决定是否忽略，通常建议提交）
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 编辑器/系统
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 测试与覆盖率
+coverage/
+.nyc_output/
+
+# PWA / 临时
+.vercel
+.netlify

@@ -14,12 +14,13 @@
               :auto-upload="false"
               :limit="1"
               accept=".pdf,.docx"
+              :disabled="uploading"
               :on-change="handleFileChange"
               :on-exceed="handleExceed"
           >
-            <el-button>选择文档</el-button>
+            <el-button :disabled="uploading">选择文档</el-button>
             <template #tip>
-              <div class="upload-tip">支持 PDF、DOCX 格式，单文件建议不超过 10MB</div>
+              <div class="upload-tip">支持 PDF、DOCX 格式，单文件建议不超过 50MB；扫描件需 OCR 识别，耗时较长</div>
             </template>
           </el-upload>
         </el-form-item>
@@ -31,7 +32,7 @@
               :disabled="!currentFile"
               @click="handleUpload"
           >
-            上传并加入知识库
+            {{ uploading ? '正在处理文档…' : '上传并加入知识库' }}
           </el-button>
           <span class="auto-tip">上传后系统将自动识别规范分类</span>
         </el-form-item>
@@ -55,11 +56,28 @@
         <el-table-column prop="uploadTime" label="上传时间" width="180" />
       </el-table>
     </div>
+
+    <!-- 全屏处理中遮罩：OCR / 向量化期间持续等待，不提前断开 -->
+    <div v-if="uploading" class="upload-overlay">
+      <div class="loading-panel">
+        <el-icon class="loading-icon"><Loading /></el-icon>
+        <div class="loading-title">文档处理中，请耐心等待</div>
+        <div class="loading-stage">{{ stageText }}</div>
+        <div class="loading-timer">已等待 {{ elapsedSeconds }} 秒</div>
+        <div class="loading-warning" v-if="elapsedSeconds >= 25">
+          扫描件 OCR 识别较慢，请勿关闭或刷新页面
+        </div>
+        <el-button link type="primary" class="cancel-btn" @click="handleCancel">
+          取消本次上传
+        </el-button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
 import { uploadDocToKnowledge } from '../api/knowledge'
 import { ElMessage } from 'element-plus'
 
@@ -67,6 +85,37 @@ const uploadRef = ref()
 const uploading = ref(false)
 const currentFile = ref(null)
 const fileList = ref([])
+
+// 处理计时与阶段文案
+const elapsedSeconds = ref(0)
+let timer = null
+// 请求取消控制器
+let abortController = null
+
+const stageText = computed(() => {
+  if (elapsedSeconds.value < 8) {
+    return '正在上传文档…'
+  }
+  if (elapsedSeconds.value < 25) {
+    return '正在解析文档、提取规范文本…'
+  }
+  return '正在进行 OCR 识别 / 切片向量化…'
+})
+
+const startTimer = () => {
+  stopTimer()
+  elapsedSeconds.value = 0
+  timer = setInterval(() => {
+    elapsedSeconds.value += 1
+  }, 1000)
+}
+
+const stopTimer = () => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+}
 
 const handleFileChange = (file) => {
   currentFile.value = file.raw
@@ -83,31 +132,53 @@ const handleUpload = async () => {
   }
 
   uploading.value = true
+  abortController = new AbortController()
+  startTimer()
+
   try {
-    await uploadDocToKnowledge(currentFile.value)
-    ElMessage.success('上传成功，文档已自动分类并加入知识库')
+    const res = await uploadDocToKnowledge(currentFile.value, abortController.signal)
+    ElMessage.success(res || '上传成功，文档已自动分类并加入知识库')
 
     // 加入前端临时列表
     fileList.value.unshift({
       fileName: currentFile.value.name,
-      specType: '智能识别中',
+      specType: '系统自动分类',
       uploadTime: new Date().toLocaleString()
     })
-
-    // 模拟分类结果展示（实际分类在后端完成，这里做展示优化）
-    setTimeout(() => {
-      fileList.value[0].specType = '系统自动分类'
-    }, 800)
 
     // 清空选择
     uploadRef.value?.clearFiles()
     currentFile.value = null
   } catch (err) {
-    ElMessage.error('上传失败，请检查后端服务')
+    // 用户主动取消，不弹错误提示
+    if (err?.code === 'ERR_CANCELED') {
+      ElMessage.info('已取消本次上传')
+      return
+    }
+    // 前端超时（兜底，接口已放宽到 5 分钟）
+    if (err?.code === 'ECONNABORTED') {
+      ElMessage.error('处理时间过长已中断，文档可能仍在后台解析，可稍后刷新查看知识库')
+      return
+    }
+    // 后端业务错误：优先取后端返回的 message
+    const message = err?.response?.data?.message || err?.response?.data || '上传失败，请检查后端服务'
+    ElMessage.error(typeof message === 'string' ? message : '上传失败，请检查后端服务')
   } finally {
+    stopTimer()
     uploading.value = false
+    abortController = null
   }
 }
+
+const handleCancel = () => {
+  if (abortController) {
+    abortController.abort()
+  }
+}
+
+onUnmounted(() => {
+  stopTimer()
+})
 </script>
 
 <style scoped>
@@ -159,5 +230,70 @@ const handleUpload = async () => {
   font-weight: 500;
   color: #1f5138;
   margin-bottom: 14px;
+}
+
+/* 遮罩 loading 面板：fixed 全屏覆盖，v-if 控制显隐 */
+.upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.loading-panel {
+  width: 360px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 28px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(31, 81, 56, 0.18);
+}
+
+.loading-icon {
+  font-size: 36px;
+  color: var(--el-color-primary);
+  animation: rotating 1.4s linear infinite;
+}
+
+.loading-title {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f5138;
+}
+
+.loading-stage {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #46574f;
+}
+
+.loading-timer {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.loading-warning {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #e6a23c;
+}
+
+.cancel-btn {
+  margin-top: 16px;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

@@ -81,11 +81,14 @@ import { ref, nextTick } from 'vue'
 import { User, Cpu, Loading } from '@element-plus/icons-vue'
 import { askSpecQuestion } from '../api/qa'
 import { ElMessage } from 'element-plus'
+// 引入全局对话状态
+import { chatStore } from '../stores/chatStore'
 
 const inputText = ref('')
 const loading = ref(false)
-const messageList = ref([])
 const messageListRef = ref(null)
+// 直接使用全局状态，组件销毁数据不丢失
+const messageList = chatStore.messageList
 
 const suggestions = [
   '储能电站一次调频性能指标有哪些要求？',
@@ -116,27 +119,24 @@ const handleSend = async () => {
   }
   if (loading.value) return
 
-  messageList.value.push({ role: 'user', content: question })
+  messageList.push({ role: 'user', content: question })
   inputText.value = ''
   scrollToBottom()
 
   loading.value = true
   try {
     const res = await askSpecQuestion({ question })
-    messageList.value.push({
+    messageList.push({
       role: 'ai',
       content: res.answer,
       meta: { specCategory: res.specCategory, costTime: res.costTime }
     })
   } catch (err) {
-    let tip = '抱歉，服务暂时不可用，请稍后重试。'
-    if (err?.code === 'ECONNABORTED') {
-      tip = '回答生成超时，请减少问题范围后重试。'
-      ElMessage.error(tip)
-    } else {
-      ElMessage.error('请求失败，请检查后端服务是否启动')
-    }
-    messageList.value.push({ role: 'ai', content: tip })
+    ElMessage.error('请求失败，请检查后端服务是否启动')
+    messageList.push({
+      role: 'ai',
+      content: '抱歉，服务暂时不可用，请稍后重试。'
+    })
   } finally {
     loading.value = false
     scrollToBottom()
